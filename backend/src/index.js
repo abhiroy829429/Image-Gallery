@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const crypto = require('crypto');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -24,6 +25,7 @@ const upload = multer({
  * Store images in memory for the assignment.
  * Each image holds: id, filename, mimetype, size, uploadedAt, data (base64 string)
  */
+const dir_name = path.resolve();
 const images = [];
 
 app.use(cors());
@@ -84,6 +86,14 @@ app.use((err, req, res, next) => {
 
   next();
 });
+
+if(process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dir_name, "../frontend/dist")));
+  
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(__dir_name, "../frontend/dist/index.html"));
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`Mini Image Gallery backend running on port ${PORT}`);

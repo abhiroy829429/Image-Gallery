@@ -1,0 +1,22 @@
+{
+  "name": "image_gallery",
+  "version": "1.0.0",
+  "description": "A simple full-stack assignment that lets users upload one image at a time (JPEG or PNG, up to 3 MB), view it immediately in a responsive gallery grid, and delete it when no longer needed. Images are stored only in backend memory.",
+  "main": "index.js",
+  "scripts": {
+    "build": "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend",
+    "start": "npm run start --prefix backend"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abhiroy829429/Image-Gallery.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/abhiroy829429/Image-Gallery/issues"
+  },
+  "homepage": "https://github.com/abhiroy829429/Image-Gallery#readme"
+}

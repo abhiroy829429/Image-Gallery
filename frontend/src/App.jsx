@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import './App.css';
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
+  import.meta.env.MODE === "development"  ? 'http://localhost:4000' : './';
 
 const MAX_FILE_SIZE = 3 * 1024 * 1024;
 const SUPPORTED_TYPES = ['image/jpeg', 'image/png'];
@@ -32,12 +32,6 @@ function App() {
   useEffect(() => {
     fetchImages();
   }, []);
-
-  useEffect(() => {
-    if (!success) return undefined;
-    const timeoutId = setTimeout(() => setSuccess(''), 3000);
-    return () => clearTimeout(timeoutId);
-  }, [success]);
 
   const fetchImages = async () => {
     setIsLoading(true);
