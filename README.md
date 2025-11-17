@@ -68,3 +68,52 @@ VITE_API_BASE_URL=https://your-hosted-backend.example
 - Start backend (`npm run dev` inside `backend`) and ensure console logs show the server running on port 4000.
 - Start frontend (`npm run dev` inside `frontend`) and open the printed URL.
 - Upload a few small JPEG/PNG files (<3 MB) and delete them to confirm flows.
+
+## Deployment on Render
+
+### Prerequisites
+- A Render account
+- Your code pushed to a Git repository (GitHub, GitLab, or Bitbucket)
+
+### Steps
+
+1. **Create a Web Service on Render:**
+   - Go to your Render dashboard
+   - Click "New +" → "Web Service"
+   - Connect your repository
+
+2. **Configure the Service:**
+   - **Name:** `mini-image-gallery` (or your preferred name)
+   - **Root Directory:** `backend` (important!)
+   - **Environment:** `Node`
+   - **Build Command:** `npm run build`
+   - **Start Command:** `npm start`
+   - **Environment Variables:**
+     - `NODE_ENV` = `production`
+     - `PORT` = (Render will set this automatically)
+
+3. **Deploy:**
+   - Click "Create Web Service"
+   - Render will automatically:
+     - Install dependencies
+     - Run the build command (which builds the frontend)
+     - Start the server
+
+4. **Verify:**
+   - Once deployed, visit your Render URL
+   - The app should load and API routes should work
+   - Check the logs in Render dashboard for any errors
+
+### Troubleshooting
+
+- **Upload not working:** Check Render logs for request details. The backend logs all requests.
+- **404 errors:** Ensure `NODE_ENV=production` is set so static files are served correctly.
+- **CORS errors:** The backend is configured to allow all origins in production.
+- **Build failures:** Ensure the frontend builds successfully. Check that `backend/package.json` has the build script.
+
+### Important Notes
+
+- The backend serves both the API and the frontend static files in production
+- API routes (`/upload`, `/images`, `/health`) are handled before static file serving
+- The frontend automatically uses relative URLs (`./`) in production mode
+- All images are stored in memory and will be lost on server restart

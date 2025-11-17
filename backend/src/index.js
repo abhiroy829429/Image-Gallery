@@ -25,11 +25,20 @@ const upload = multer({
  * Store images in memory for the assignment.
  * Each image holds: id, filename, mimetype, size, uploadedAt, data (base64 string)
  */
-const dir_name = path.resolve();
 const images = [];
 
-app.use(cors());
+// CORS configuration - allow all origins for production
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 app.use(express.json());
+
+// Request logging middleware for debugging
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path} - ${new Date().toISOString()}`);
+  next();
+});
 
 app.get('/health', (_, res) => {
   res.json({ status: 'ok' });
@@ -40,11 +49,16 @@ app.get('/images', (_, res) => {
 });
 
 app.post('/upload', upload.single('image'), (req, res) => {
+  console.log('POST /upload - Request received');
+  console.log('File:', req.file ? 'Present' : 'Missing');
+  
   if (!req.file) {
+    console.log('No file in request');
     return res.status(400).json({ message: 'Please attach a JPEG or PNG image ≤ 3 MB.' });
   }
 
   const { originalname, mimetype, size, buffer } = req.file;
+  console.log(`Processing file: ${originalname}, type: ${mimetype}, size: ${size} bytes`);
 
   const imageRecord = {
     id: crypto.randomUUID(),
@@ -56,6 +70,7 @@ app.post('/upload', upload.single('image'), (req, res) => {
   };
 
   images.unshift(imageRecord);
+  console.log(`Image uploaded successfully. Total images: ${images.length}`);
 
   res.status(201).json(imageRecord);
 });
@@ -87,11 +102,27 @@ app.use((err, req, res, next) => {
   next();
 });
 
-if(process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(dir_name, "../frontend/dist")));
+// Serve static files and handle SPA routing in production
+// IMPORTANT: This must come AFTER all API routes
+if (process.env.NODE_ENV === 'production') {
+  const distPath = path.join(__dirname, '../frontend/dist');
   
-  app.get(/.*/, (req, res) => {
-    res.sendFile(path.join(dir_name, "../frontend/dist/index.html"));
+  // Serve static assets (JS, CSS, images, etc.)
+  app.use(express.static(distPath));
+  
+  // Catch-all handler: serve index.html for all non-API routes
+  // API routes are already defined above, so they will match first
+  app.get('*', (req, res) => {
+    // Only serve index.html for non-API routes
+    const isApiRoute = req.path.startsWith('/health') || 
+                       req.path.startsWith('/images') || 
+                       req.path.startsWith('/upload');
+    
+    if (!isApiRoute) {
+      return res.sendFile(path.join(distPath, 'index.html'));
+    }
+    // This shouldn't happen if API routes are defined correctly above
+    res.status(404).json({ message: 'Not found' });
   });
 }
 

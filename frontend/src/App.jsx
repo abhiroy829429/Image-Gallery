@@ -25,6 +25,37 @@ function App() {
   const [isUploading, setIsUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef(null);
+  // timer ref for auto-dismissing messages
+  const messageTimerRef = useRef(null);
+
+  // helper to show a temporary message (auto clears after `ms`)
+  const showTemporaryMessage = (type, msg, ms = 3000) => {
+    if (messageTimerRef.current) {
+      clearTimeout(messageTimerRef.current);
+      messageTimerRef.current = null;
+    }
+    setError('');
+    setSuccess('');
+    if (type === 'success') {
+      setSuccess(msg);
+    } else {
+      setError(msg);
+    }
+    messageTimerRef.current = setTimeout(() => {
+      setSuccess('');
+      setError('');
+      messageTimerRef.current = null;
+    }, ms);
+  };
+
+  // cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (messageTimerRef.current) {
+        clearTimeout(messageTimerRef.current);
+      }
+    };
+  }, []);
 
   const totalBytes = images.reduce((sum, image) => sum + (image.size ?? 0), 0);
   const lastUploadedAt = images[0]?.uploadedAt;
@@ -77,9 +108,9 @@ function App() {
     try {
       const uploadedImage = await uploadImage(file);
       setImages((prev) => [uploadedImage, ...prev]);
-      setSuccess(`Uploaded ${uploadedImage.filename}`);
+      showTemporaryMessage('success', `Uploaded ${uploadedImage.filename}`);
     } catch (err) {
-      setError(err.message ?? 'Upload failed.');
+      showTemporaryMessage('error', err.message ?? 'Upload failed.');
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -91,7 +122,9 @@ function App() {
     new Promise((resolve, reject) => {
       setIsUploading(true);
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', `${API_BASE_URL}/upload`);
+      const uploadUrl = `${API_BASE_URL}/upload`;
+      console.log('Uploading to:', uploadUrl);
+      xhr.open('POST', uploadUrl);
 
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
@@ -101,21 +134,38 @@ function App() {
       };
 
       xhr.onload = () => {
+        console.log('Upload response status:', xhr.status);
         if (xhr.status >= 200 && xhr.status < 300) {
           try {
             const data = JSON.parse(xhr.responseText);
+            console.log('Upload successful:', data.filename);
             resolve(data);
           } catch (parseError) {
+            console.error('Parse error:', parseError);
             reject(new Error('Invalid server response.'));
           }
         } else {
-          const message =
-            JSON.parse(xhr.responseText)?.message ?? 'Upload failed.';
+          let message = 'Upload failed.';
+          try {
+            const errorData = JSON.parse(xhr.responseText);
+            message = errorData.message || `Server returned status ${xhr.status}`;
+          } catch (e) {
+            message = `Server returned status ${xhr.status}: ${xhr.statusText}`;
+          }
+          console.error('Upload failed:', message);
           reject(new Error(message));
         }
       };
 
-      xhr.onerror = () => reject(new Error('Network error during upload.'));
+      xhr.onerror = () => {
+        console.error('Network error during upload');
+        reject(new Error('Network error during upload. Please check your connection.'));
+      };
+
+      xhr.onabort = () => {
+        console.error('Upload aborted');
+        reject(new Error('Upload was cancelled.'));
+      };
 
       const formData = new FormData();
       formData.append('image', file);
@@ -133,9 +183,9 @@ function App() {
         throw new Error('Unable to delete image.');
       }
       setImages((prev) => prev.filter((image) => image.id !== id));
-      setSuccess('Image deleted.');
+      showTemporaryMessage('success', 'Image deleted.');
     } catch (err) {
-      setError(err.message);
+      showTemporaryMessage('error', err.message);
     }
   };
 
