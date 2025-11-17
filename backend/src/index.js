@@ -111,18 +111,25 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(distPath));
   
   // Catch-all handler: serve index.html for all non-API routes
-  // API routes are already defined above, so they will match first
-  app.get('*', (req, res) => {
-    // Only serve index.html for non-API routes
+  // Use middleware instead of app.get('*') for Express 5 compatibility
+  app.use((req, res, next) => {
+    // Skip if it's an API route (these should have been handled above)
     const isApiRoute = req.path.startsWith('/health') || 
                        req.path.startsWith('/images') || 
                        req.path.startsWith('/upload');
     
-    if (!isApiRoute) {
-      return res.sendFile(path.join(distPath, 'index.html'));
+    if (isApiRoute) {
+      // API route not found - return 404
+      return res.status(404).json({ message: 'Not found' });
     }
-    // This shouldn't happen if API routes are defined correctly above
-    res.status(404).json({ message: 'Not found' });
+    
+    // For all other routes, serve index.html (SPA routing)
+    res.sendFile(path.join(distPath, 'index.html'), (err) => {
+      if (err) {
+        console.error('Error sending index.html:', err);
+        res.status(500).send('Error loading page');
+      }
+    });
   });
 }
 
