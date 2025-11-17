@@ -88,10 +88,10 @@ app.use((err, req, res, next) => {
 });
 
 if(process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dir_name, "../frontend/dist")));
+  app.use(express.static(path.join(dir_name, "../frontend/dist")));
   
   app.get("*", (req, res) => {
-    res.sendFile(path.join(__dir_name, "../frontend/dist/index.html"));
+    res.sendFile(path.join(dir_name, "../frontend/dist/index.html"));
   });
 }
 
