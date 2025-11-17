@@ -50,6 +50,8 @@ app.get('/images', (_, res) => {
 
 app.post('/upload', upload.single('image'), (req, res) => {
   console.log('POST /upload - Request received');
+  console.log('Request path:', req.path);
+  console.log('Request originalUrl:', req.originalUrl);
   console.log('File:', req.file ? 'Present' : 'Missing');
   
   if (!req.file) {
@@ -144,34 +146,52 @@ if (process.env.NODE_ENV === 'production') {
     console.error('The build script should create: ../frontend/dist/index.html');
   } else {
     // Serve static assets (JS, CSS, images, etc.)
+    // express.static only handles GET/HEAD by default, so POST/DELETE will pass through
     app.use(express.static(distPath, {
       maxAge: '1d', // Cache static assets for 1 day
     }));
     
     console.log('Static file serving enabled for:', distPath);
     
-    // Catch-all handler: serve index.html for all non-API routes
-    // Use middleware instead of app.get('*') for Express 5 compatibility
+    // Catch-all handler: serve index.html ONLY for GET requests to non-API routes
+    // POST/DELETE requests will naturally pass through since express.static doesn't handle them
     app.use((req, res, next) => {
-      // Skip if it's an API route (these should have been handled above)
+      // Normalize the path to handle edge cases like double slashes
+      const normalizedPath = req.path.replace(/\/+/g, '/');
+      
+      // Skip API routes - they should have been handled by route handlers above
+      // Check both original path and normalized path
       const isApiRoute = req.path.startsWith('/health') || 
                          req.path.startsWith('/images') || 
-                         req.path.startsWith('/upload');
+                         req.path.startsWith('/upload') ||
+                         normalizedPath.startsWith('/health') ||
+                         normalizedPath.startsWith('/images') ||
+                         normalizedPath.startsWith('/upload');
       
       if (isApiRoute) {
+        // If this is a POST/DELETE/PUT to an API route that wasn't handled, log it
+        if (req.method !== 'GET' && req.method !== 'HEAD') {
+          console.warn(`Unhandled ${req.method} request to API route: ${req.path} (normalized: ${normalizedPath})`);
+        }
         // API route not found - return 404
         return res.status(404).json({ message: 'Not found' });
       }
       
-      // For all other routes, serve index.html (SPA routing)
-      const indexPath = path.join(distPath, 'index.html');
-      res.sendFile(indexPath, (err) => {
-        if (err) {
-          console.error('Error sending index.html:', err.message);
-          console.error('Attempted path:', indexPath);
-          res.status(500).send('Error loading page');
-        }
-      });
+      // Only handle GET/HEAD requests for SPA routing
+      // POST/DELETE/PUT etc. will return 405 for non-API routes
+      if (req.method === 'GET' || req.method === 'HEAD') {
+        const indexPath = path.join(distPath, 'index.html');
+        return res.sendFile(indexPath, (err) => {
+          if (err) {
+            console.error('Error sending index.html:', err.message);
+            console.error('Attempted path:', indexPath);
+            res.status(500).send('Error loading page');
+          }
+        });
+      }
+      
+      // Method not allowed for non-GET requests to non-API routes
+      res.status(405).json({ message: 'Method not allowed' });
     });
   }
 }

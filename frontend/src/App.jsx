@@ -1,8 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import './App.css';
 
-const API_BASE_URL =
-  import.meta.env.MODE === "development"  ? 'http://localhost:4000' : './';
+// API base URL - use absolute URL in dev, empty string in production for relative URLs
+const API_BASE_URL = import.meta.env.MODE === "development" 
+  ? 'http://localhost:4000' 
+  : ''; // Empty string means relative to current origin
+
+// Helper to construct API URLs without double slashes
+const getApiUrl = (endpoint) => {
+  const base = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+  const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  return `${base}${path}`;
+};
 
 const MAX_FILE_SIZE = 3 * 1024 * 1024;
 const SUPPORTED_TYPES = ['image/jpeg', 'image/png'];
@@ -68,7 +77,7 @@ function App() {
     setIsLoading(true);
     setError('');
     try {
-      const response = await fetch(`${API_BASE_URL}/images`);
+      const response = await fetch(getApiUrl('/images'));
       if (!response.ok) {
         throw new Error('Unable to load images.');
       }
@@ -122,7 +131,7 @@ function App() {
     new Promise((resolve, reject) => {
       setIsUploading(true);
       const xhr = new XMLHttpRequest();
-      const uploadUrl = `${API_BASE_URL}/upload`;
+      const uploadUrl = getApiUrl('/upload');
       console.log('Uploading to:', uploadUrl);
       xhr.open('POST', uploadUrl);
 
@@ -176,7 +185,7 @@ function App() {
     setError('');
     setSuccess('');
     try {
-      const response = await fetch(`${API_BASE_URL}/images/${id}`, {
+      const response = await fetch(getApiUrl(`/images/${id}`), {
         method: 'DELETE',
       });
       if (!response.ok) {
