@@ -105,32 +105,75 @@ app.use((err, req, res, next) => {
 // Serve static files and handle SPA routing in production
 // IMPORTANT: This must come AFTER all API routes
 if (process.env.NODE_ENV === 'production') {
-  const distPath = path.join(__dirname, '../frontend/dist');
+  const fs = require('fs');
   
-  // Serve static assets (JS, CSS, images, etc.)
-  app.use(express.static(distPath));
+  // Try multiple possible paths for the frontend dist folder
+  // This handles different directory structures on various deployment platforms
+  const possiblePaths = [
+    path.resolve(__dirname, '../frontend/dist'),           // Local development / standard structure
+    path.resolve(__dirname, '../../frontend/dist'),        // Render with backend as root
+    path.resolve(process.cwd(), '../frontend/dist'),       // Alternative structure
+    path.resolve(process.cwd(), 'frontend/dist'),          // If frontend is in same level
+    path.resolve(process.cwd(), '../../frontend/dist'),    // Another alternative
+  ];
   
-  // Catch-all handler: serve index.html for all non-API routes
-  // Use middleware instead of app.get('*') for Express 5 compatibility
-  app.use((req, res, next) => {
-    // Skip if it's an API route (these should have been handled above)
-    const isApiRoute = req.path.startsWith('/health') || 
-                       req.path.startsWith('/images') || 
-                       req.path.startsWith('/upload');
-    
-    if (isApiRoute) {
-      // API route not found - return 404
-      return res.status(404).json({ message: 'Not found' });
+  console.log('Looking for frontend dist folder...');
+  console.log('Current working directory:', process.cwd());
+  console.log('__dirname:', __dirname);
+  
+  let distPath = null;
+  
+  // Find the first path that actually exists
+  for (const testPath of possiblePaths) {
+    const indexPath = path.join(testPath, 'index.html');
+    console.log(`Checking: ${testPath}`);
+    if (fs.existsSync(testPath) && fs.existsSync(indexPath)) {
+      distPath = testPath;
+      console.log(`✓ Found frontend dist at: ${distPath}`);
+      break;
     }
-    
-    // For all other routes, serve index.html (SPA routing)
-    res.sendFile(path.join(distPath, 'index.html'), (err) => {
-      if (err) {
-        console.error('Error sending index.html:', err);
-        res.status(500).send('Error loading page');
-      }
+  }
+  
+  if (!distPath) {
+    console.error('✗ ERROR: Could not find frontend dist folder. Tried paths:');
+    possiblePaths.forEach(p => {
+      const exists = fs.existsSync(p);
+      console.error(`  ${exists ? '✓' : '✗'} ${p}`);
     });
-  });
+    console.error('\nMake sure the frontend build completed successfully.');
+    console.error('The build script should create: ../frontend/dist/index.html');
+  } else {
+    // Serve static assets (JS, CSS, images, etc.)
+    app.use(express.static(distPath, {
+      maxAge: '1d', // Cache static assets for 1 day
+    }));
+    
+    console.log('Static file serving enabled for:', distPath);
+    
+    // Catch-all handler: serve index.html for all non-API routes
+    // Use middleware instead of app.get('*') for Express 5 compatibility
+    app.use((req, res, next) => {
+      // Skip if it's an API route (these should have been handled above)
+      const isApiRoute = req.path.startsWith('/health') || 
+                         req.path.startsWith('/images') || 
+                         req.path.startsWith('/upload');
+      
+      if (isApiRoute) {
+        // API route not found - return 404
+        return res.status(404).json({ message: 'Not found' });
+      }
+      
+      // For all other routes, serve index.html (SPA routing)
+      const indexPath = path.join(distPath, 'index.html');
+      res.sendFile(indexPath, (err) => {
+        if (err) {
+          console.error('Error sending index.html:', err.message);
+          console.error('Attempted path:', indexPath);
+          res.status(500).send('Error loading page');
+        }
+      });
+    });
+  }
 }
 
 app.listen(PORT, () => {
